@@ -86,3 +86,23 @@ def tidy_imports(table):
         tonnes=wide["quantity_100kg"] / 10,
         price_eur_kg=wide["value_eur"] / (wide["quantity_100kg"] * 100),
     )
+
+
+def save_table(table, path):
+    """
+    Save a tidy table to a CSV file.
+
+    The folder is created if it does not exist yet.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Table returned by tidy_imports.
+    path : str
+        Destination file, e.g. "data/clean/magnets.csv".
+    """
+    folder = os.path.dirname(path)
+    if folder != "":
+        os.makedirs(folder, exist_ok=True)
+
+    table.to_csv(path, index=False)
