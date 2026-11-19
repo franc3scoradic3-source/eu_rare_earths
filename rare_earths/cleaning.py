@@ -106,3 +106,31 @@ def save_table(table, path):
         os.makedirs(folder, exist_ok=True)
 
     table.to_csv(path, index=False)
+
+
+def load_table(path):
+    """
+    Read a tidy table saved with save_table.
+
+    Parameters
+    ----------
+    path : str
+        Path of the CSV file.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The saved table.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"{path} not found: save_table() first")
+
+    # Codes and periods are labels, not numbers: reading them as text keeps
+    # leading zeros and gives annual and monthly periods the same type.
+    return pd.read_csv(path, dtype={"product": str, "period": str})
+
