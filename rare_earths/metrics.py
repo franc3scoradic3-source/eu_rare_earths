@@ -30,10 +30,10 @@ def china_share(table, measure="tonnes"):
     Returns
     -------
     pandas.DataFrame
-        Table with columns "product", "period", "china_share".
+        Table with columns "reporter", "product", "period", "china_share".
     """
     by_partner = table.pivot(
-        index=["product", "period"],
+        index=["reporter", "product", "period"],
         columns="partner",
         values=measure,
     ).reset_index()
@@ -42,7 +42,7 @@ def china_share(table, measure="tonnes"):
     share = by_partner[CHINA] / by_partner[EXTRA_EU]
     by_partner = by_partner.assign(china_share=share)
 
-    return by_partner[["product", "period", "china_share"]]
+    return by_partner[["reporter", "product", "period", "china_share"]]
 
 
 def hhi(table, measure="tonnes"):
