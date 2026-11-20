@@ -2,6 +2,8 @@
 Measure how much EU imports depend on China.
 """
 
+from scipy import stats
+
 # Comext code of China as a partner: the numerator of the share.
 CHINA = "CN"
 # Comext code of all countries outside the EU, China included: the denominator.
@@ -77,3 +79,36 @@ def hhi(table, measure="tonnes"):
 
     index = suppliers.groupby(groups)["squared"].sum()
     return index.reset_index(name="hhi")
+
+def trend(table, column):
+    """
+    Fit a least-squares line to a column over the years.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Table with a "period" column of years, with one row per year: a single
+        series, i.e. one reporter and one product.
+    column : str
+        Column to study, e.g. "china_share" or "hhi".
+
+    Returns
+    -------
+    scipy.stats LinregressResult
+        Result of linregress: slope (change per year, in the unit of column),
+        intercept, rvalue and pvalue.
+
+    Raises
+    ------
+    ValueError
+        If a year appears more than once.
+    """
+    # A repeated year means that several series are mixed in the table.
+    if table["period"].duplicated().any():
+        raise ValueError(
+            "Each year must appear once: filter one reporter and one product."
+        )
+
+    # Periods are labels in the tables, but the line needs numbers.
+    year = table["period"].astype(int)
+    return stats.linregress(year, table[column])
