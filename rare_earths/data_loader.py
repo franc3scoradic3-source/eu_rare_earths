@@ -9,10 +9,13 @@ import os
 
 import requests
 
+# Address of the Comext API for dataset DS-045409 (EU trade by CN8 code).
 BASE_URL = (
     "https://ec.europa.eu/eurostat/api/comext/dissemination/"
     "statistics/1.0/data/DS-045409"
 )
+# Requests with all partners or many months are slow: without a limit,
+# the program could wait forever.
 TIMEOUT_SECONDS = 60
 
 
@@ -28,8 +31,8 @@ def build_params(products, partners, periods, reporter="EU", freq="A"):
     ----------
     products : str or list
         CN product codes.
-    partners : str or list
-        Partner countries, e.g. "CN" or "EXT_EU".
+    partners : str, list or None
+        Partner countries, e.g. "CN" or "EXT_EU". None asks for all partners.
     periods : str or list
         Years ("2024") or months ("2024-04").
     reporter : str
@@ -76,10 +79,17 @@ def fetch_imports(products, partners, periods, reporter="EU", freq="A"):
     params = build_params(products, partners, periods, reporter, freq)
 
     try:
-        response = requests.get(BASE_URL, params=params, timeout=TIMEOUT_SECONDS)
-        response.raise_for_status()  # HTTP errors (400, 404, 500) become exceptions
+        response = requests.get(
+            BASE_URL,
+            params=params,
+            timeout=TIMEOUT_SECONDS,
+        )
+        # HTTP errors (400, 404, 500) become exceptions.
+        response.raise_for_status()
     except requests.exceptions.Timeout:
-        raise ComextError("The Comext API did not answer in time, please retry")
+        raise ComextError(
+            "The Comext API did not answer in time, please retry"
+        )
     except requests.exceptions.RequestException as error:
         raise ComextError(f"Could not reach the Comext API: {error}")
 
@@ -112,6 +122,7 @@ def save_json(data, path):
         Destination file, e.g. "data/raw/magnets.json".
     """
     folder = os.path.dirname(path)
+    # A bare file name has no folder, and os.makedirs("") would fail.
     if folder != "":
         os.makedirs(folder, exist_ok=True)
 
@@ -143,8 +154,10 @@ def load_json(path):
             return json.load(f)
     except FileNotFoundError:
         raise ComextError(f"File not found: {path}. Download the data first.")
-    
-def download_imports(path, products, partners, periods, reporter="EU", freq="A"):
+
+
+def download_imports(path, products, partners, periods,
+                     reporter="EU", freq="A"):
     """
     Download imports and save them to a JSON file, unless it already exists.
 
@@ -160,6 +173,8 @@ def download_imports(path, products, partners, periods, reporter="EU", freq="A")
     dict
         The answer of the API, read from the file.
     """
+    # Download only once: Eurostat revises recent data, so the saved file
+    # keeps the results reproducible until it is deleted.
     if not os.path.exists(path):
         data = fetch_imports(products, partners, periods, reporter, freq)
         save_json(data, path)
