@@ -14,8 +14,7 @@ BASE_URL = (
     "https://ec.europa.eu/eurostat/api/comext/dissemination/"
     "statistics/1.0/data/DS-045409"
 )
-# Requests with all partners or many months are slow: without a limit,
-# the program could wait forever.
+# Seconds to wait for an answer before giving up.
 TIMEOUT_SECONDS = 60
 
 
@@ -173,8 +172,7 @@ def download_imports(path, products, partners, periods,
     dict
         The answer of the API, read from the file.
     """
-    # Download only once: Eurostat revises recent data, so the saved file
-    # keeps the results reproducible until it is deleted.
+    # Download only once: later calls read the saved file.
     if not os.path.exists(path):
         data = fetch_imports(products, partners, periods, reporter, freq)
         save_json(data, path)

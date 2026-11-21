@@ -149,6 +149,5 @@ def year_over_year(table, measure="tonnes"):
         other=by_partner[EXTRA_EU] - by_partner[CHINA]
     )
 
-    # pct_change counts rows: with one row per month, 12 rows back is the
-    # same month of the year before, which also removes seasonality.
+    # One row per month: 12 rows back is the same month of the year before.
     return by_partner.pct_change(12) * 100

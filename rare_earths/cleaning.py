@@ -130,7 +130,6 @@ def load_table(path):
     if not os.path.exists(path):
         raise FileNotFoundError(f"{path} not found: save_table() first")
 
-    # Codes and periods are labels, not numbers: reading them as text keeps
-    # leading zeros and gives annual and monthly periods the same type.
+    # Codes and periods are labels, not numbers: read them as text.
     return pd.read_csv(path, dtype={"product": str, "period": str})
 
