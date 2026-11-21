@@ -112,3 +112,43 @@ def trend(table, column):
     # Periods are labels in the tables, but the line needs numbers.
     year = table["period"].astype(int)
     return stats.linregress(year, table[column])
+
+def year_over_year(table, measure="tonnes"):
+    """
+    Compute the change of monthly imports from the same month a year before.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Tidy table of monthly data returned by tidy_imports, with rows for
+        CHINA and EXTRA_EU, one reporter and one product. The months must be
+        consecutive, without gaps.
+    measure : str, default "tonnes"
+        Column used for the change: "tonnes" or "value_eur".
+
+    Returns
+    -------
+    pandas.DataFrame
+        Changes in percent, with "period" as index and the columns CHINA,
+        EXTRA_EU and "other" (all extra-EU suppliers but China). The first
+        12 months are NaN, since they have no year before.
+
+    Raises
+    ------
+    ValueError
+        If a month appears more than once for the same partner.
+    """
+    # A repeated month means that several series are mixed in the table.
+    if table[["partner", "period"]].duplicated().any():
+        raise ValueError(
+            "Each month must appear once: filter one reporter and one product."
+        )
+
+    by_partner = table.pivot(index="period", columns="partner", values=measure)
+    by_partner = by_partner.assign(
+        other=by_partner[EXTRA_EU] - by_partner[CHINA]
+    )
+
+    # pct_change counts rows: with one row per month, 12 rows back is the
+    # same month of the year before, which also removes seasonality.
+    return by_partner.pct_change(12) * 100
