@@ -5,7 +5,7 @@ Draw the charts of the analysis with matplotlib.
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
-from rare_earths.metrics import trend
+from rare_earths.metrics import CHINA, trend
 
 # Red for China and blue for Europe, in every chart.
 CHINA_COLOR = "#D62828"
@@ -230,6 +230,107 @@ def plot_hhi(index, title):
         title,
         "Herfindahl-Hirschman index of extra-EU suppliers "
         f"(10,000 = a single supplier), {first}–{last}",
+    )
+
+    return fig
+
+
+def plot_monthly(monthly, title, highlight="2025"):
+    """
+    Plot the monthly imports from China, one line per year.
+
+    The highlighted year is red, the others grey, with the months of the
+    April 2025 licences shaded and two events marked.
+
+    Parameters
+    ----------
+    monthly : pandas.DataFrame
+        Tidy table of monthly data returned by tidy_imports, with one
+        reporter and one product.
+    title : str
+        The message of the chart.
+    highlight : str, default "2025"
+        Year drawn in red.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The chart.
+    """
+    china = monthly[monthly["partner"] == CHINA]
+    year = china["period"].str[:4]
+    month = china["period"].str[5:].astype(int)
+    tonnes = china.set_index("period")["tonnes"]
+
+    fig, ax = plt.subplots(figsize=(9, 4.5), layout="constrained")
+
+    # The first months of the licences, when few were granted.
+    ax.axvspan(4, 8, color=REFERENCE_COLOR, alpha=0.1, linewidth=0)
+    ax.text(
+        6,
+        2550,
+        f"{highlight}: licence bottleneck",
+        color=REFERENCE_COLOR,
+        ha="center",
+    )
+
+    for one_year in sorted(year.unique()):
+        rows = year == one_year
+        if one_year == highlight:
+            color, width = CHINA_COLOR, 3.5
+        else:
+            color, width = "#BBBBBB", 1.5
+        ax.plot(
+            month[rows],
+            china.loc[rows, "tonnes"],
+            color=color,
+            linewidth=width,
+        )
+        # The year on the left of its line: in January the lines are apart.
+        ax.text(
+            0.85,
+            china.loc[rows, "tonnes"].iloc[0],
+            one_year,
+            color=color,
+            fontweight="bold" if one_year == highlight else "normal",
+            ha="right",
+            va="center",
+        )
+
+    # Two events of 2025: the talks in London and the new controls.
+    ax.plot(
+        [6, 10],
+        [tonnes["2025-06"], tonnes["2025-10"]],
+        "o",
+        color=CHINA_COLOR,
+    )
+    ax.text(
+        6,
+        tonnes["2025-06"] - 230,
+        "London talks",
+        color=CHINA_COLOR,
+        ha="center",
+    )
+    ax.text(
+        10,
+        tonnes["2025-10"] + 120,
+        "New controls",
+        color=CHINA_COLOR,
+        ha="center",
+    )
+
+    ax.axhline(0, color="darkgray", linewidth=1, clip_on=False)
+    ax.set_xticks(
+        range(1, 13),
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    )
+    ax.set_xlim(0.3, 12.2)
+    ax.set_ylim(0, 2700)
+    style_axes(
+        ax,
+        title,
+        "Rare-earth magnets imported each month from China, tonnes",
     )
 
     return fig
