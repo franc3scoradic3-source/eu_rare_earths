@@ -5,6 +5,8 @@ Draw the charts of the analysis with matplotlib.
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 
+from rare_earths.metrics import trend
+
 # Red for China and blue for Europe, in every chart.
 CHINA_COLOR = "#D62828"
 CHINA_LIGHT = "#E6A39B"
@@ -17,6 +19,8 @@ TITLE_COLOR = "#222222"
 TEXT_COLOR = "#555555"
 # Critical Raw Materials Act: at most 65% from a single third country.
 CRMA_LIMIT = 65
+# Above 2,500 the market is highly concentrated.
+HHI_CONCENTRATED = 2500
 
 
 def style_axes(ax, title, subtitle):
@@ -149,6 +153,83 @@ def plot_china_share(shares, title):
         title,
         "Where the EU buys its permanent magnets: "
         f"China vs the rest of the world, {first}–{last}",
+    )
+
+    return fig
+
+
+def plot_hhi(index, title):
+    """
+    Plot the Herfindahl-Hirschman index of the suppliers over the years.
+
+    The index is drawn with its linear trend, over the zone of highly
+    concentrated markets.
+
+    Parameters
+    ----------
+    index : pandas.DataFrame
+        Table returned by hhi, with one reporter and one product.
+    title : str
+        The message of the chart.
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The chart.
+    """
+    year = index["period"].astype(int)
+    fit = trend(index, "hhi")
+    first, last = year.min(), year.max()
+
+    fig, ax = plt.subplots(figsize=(9, 4.5), layout="constrained")
+
+    # The zone of highly concentrated markets.
+    ax.axhspan(
+        HHI_CONCENTRATED,
+        10000,
+        color=CHINA_LIGHT,
+        alpha=0.25,
+        linewidth=0,
+    )
+    ax.text(
+        first,
+        HHI_CONCENTRATED + 150,
+        "Highly concentrated: above 2,500",
+        color=REFERENCE_COLOR,
+        fontsize=12,
+    )
+
+    # The trend line, dashed, below the index.
+    ax.plot(
+        year,
+        fit.intercept + fit.slope * year,
+        color=CHINA_COLOR,
+        linestyle="--",
+        linewidth=1.2,
+    )
+    ax.plot(year, index["hhi"], color=CHINA_COLOR, linewidth=3)
+
+    # How much the index grows every year, above the last value.
+    ax.text(
+        last,
+        index["hhi"].iloc[-1] + 400,
+        f"+{fit.slope:.0f} per year",
+        color=CHINA_COLOR,
+        fontweight="bold",
+        ha="right",
+    )
+
+    # A light baseline at 0, since the frame is removed.
+    ax.axhline(0, color="darkgray", linewidth=1, clip_on=False)
+    ax.set_xticks(year)
+    ax.set_xlim(first, last)
+    ax.set_ylim(0, 10000)
+    ax.set_yticks([x * 1250 for x in range(1, 9)])
+    style_axes(
+        ax,
+        title,
+        "Herfindahl-Hirschman index of extra-EU suppliers "
+        f"(10,000 = a single supplier), {first}–{last}",
     )
 
     return fig
