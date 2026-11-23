@@ -14,6 +14,14 @@ BASE_URL = (
     "https://ec.europa.eu/eurostat/api/comext/dissemination/"
     "statistics/1.0/data/DS-045409"
 )
+# Address of the national accounts of Eurostat (value added by sector).
+VALUE_ADDED_URL = (
+    "https://ec.europa.eu/eurostat/api/dissemination/"
+    "statistics/1.0/data/nama_10_a64"
+)
+# NACE sectors that use rare-earth magnets: electrical equipment,
+# machinery, motor vehicles, other transport equipment.
+MAGNET_SECTORS = ["C27", "C28", "C29", "C30"]
 # Seconds to wait for an answer before giving up.
 TIMEOUT_SECONDS = 60
 
@@ -56,6 +64,47 @@ def build_params(products, partners, periods, reporter="EU", freq="A"):
     }
 
 
+def get_json(url, params):
+    """
+    Send a request to a Eurostat API and return its JSON answer.
+
+    It is shared by all the datasets: Comext for the imports, and the
+    national accounts for the value added.
+
+    Parameters
+    ----------
+    url : str
+        Address of the dataset.
+    params : dict
+        Parameters of the request.
+
+    Returns
+    -------
+    dict
+        The JSON answer of the API.
+
+    Raises
+    ------
+    ComextError
+        If the API cannot be reached or does not return valid JSON.
+    """
+    try:
+        response = requests.get(url, params=params, timeout=TIMEOUT_SECONDS)
+        # HTTP errors (400, 404, 500) become exceptions.
+        response.raise_for_status()
+    except requests.exceptions.Timeout:
+        raise ComextError(
+            "The Eurostat API did not answer in time, please retry"
+        )
+    except requests.exceptions.RequestException as error:
+        raise ComextError(f"Could not reach the Eurostat API: {error}")
+
+    try:
+        return response.json()
+    except ValueError:
+        raise ComextError("The Eurostat API did not return valid JSON")
+
+
 def fetch_imports(products, partners, periods, reporter="EU", freq="A"):
     """
     Download import quantities and values from the Comext API.
@@ -76,26 +125,7 @@ def fetch_imports(products, partners, periods, reporter="EU", freq="A"):
         If the request fails or the answer contains no data.
     """
     params = build_params(products, partners, periods, reporter, freq)
-
-    try:
-        response = requests.get(
-            BASE_URL,
-            params=params,
-            timeout=TIMEOUT_SECONDS,
-        )
-        # HTTP errors (400, 404, 500) become exceptions.
-        response.raise_for_status()
-    except requests.exceptions.Timeout:
-        raise ComextError(
-            "The Comext API did not answer in time, please retry"
-        )
-    except requests.exceptions.RequestException as error:
-        raise ComextError(f"Could not reach the Comext API: {error}")
-
-    try:
-        data = response.json()
-    except ValueError:
-        raise ComextError("The Comext API did not return valid JSON")
+    data = get_json(BASE_URL, params)
 
     if not data.get("value"):
         raise ComextError(
@@ -176,4 +206,50 @@ def download_imports(path, products, partners, periods,
     if not os.path.exists(path):
         data = fetch_imports(products, partners, periods, reporter, freq)
         save_json(data, path)
+    return load_json(path)
+
+
+def fetch_value_added(periods):
+    """
+    Download the value added of the sectors that use magnets.
+
+    Parameters
+    ----------
+    periods : str or list
+        Years, e.g. ["2023", "2024"].
+
+    Returns
+    -------
+    dict
+        The JSON answer of the API, for all the countries.
+    """
+    params = {
+        "format": "JSON",
+        "nace_r2": MAGNET_SECTORS,
+        "na_item": "B1G",
+        "unit": "CP_MEUR",
+        "time": periods,
+    }
+    return get_json(VALUE_ADDED_URL, params)
+
+
+def download_value_added(path, periods):
+    """
+    Download the value added and save it to a JSON file, unless it exists.
+
+    Parameters
+    ----------
+    path : str
+        Where to save the file, e.g. "data/raw/value_added.json".
+    periods : str or list
+        Same as in fetch_value_added.
+
+    Returns
+    -------
+    dict
+        The answer of the API, read from the file.
+    """
+    # Download only once: later calls read the saved file.
+    if not os.path.exists(path):
+        save_json(fetch_value_added(periods), path)
     return load_json(path)

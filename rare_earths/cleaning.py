@@ -133,3 +133,37 @@ def load_table(path):
     # Codes and periods are labels, not numbers: read them as text.
     return pd.read_csv(path, dtype={"product": str, "period": str})
 
+
+def tidy_value_added(table):
+    """
+    Turn the value added by sector into one value per country and year.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Table returned by to_dataframe for the national accounts.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Table with columns "reporter", "period", "value_added_meur", for
+        the countries with data for all the sectors.
+    """
+    # Eurostat uses EL for Greece here, and GR in Comext.
+    table = table.assign(geo=table["geo"].replace("EL", "GR"))
+
+    by_country = table.groupby(["geo", "time"])["value"].agg(["sum", "count"])
+    # A country without all the sectors would look smaller than it is.
+    complete = by_country[by_country["count"] == by_country["count"].max()]
+
+    return (
+        complete["sum"]
+        .reset_index()
+        .rename(
+            columns={
+                "geo": "reporter",
+                "time": "period",
+                "sum": "value_added_meur",
+            }
+        )
+    )
