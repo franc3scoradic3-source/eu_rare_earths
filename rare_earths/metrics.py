@@ -80,6 +80,7 @@ def hhi(table, measure="tonnes"):
     index = suppliers.groupby(groups)["squared"].sum()
     return index.reset_index(name="hhi")
 
+
 def trend(table, column):
     """
     Fit a least-squares line to a column over the years.
@@ -112,6 +113,7 @@ def trend(table, column):
     # Periods are labels in the tables, but the line needs numbers.
     year = table["period"].astype(int)
     return stats.linregress(year, table[column])
+
 
 def year_over_year(table, measure="tonnes"):
     """
@@ -151,3 +153,42 @@ def year_over_year(table, measure="tonnes"):
 
     # One row per month: 12 rows back is the same month of the year before.
     return by_partner.pct_change(12) * 100
+
+
+def industry_exposure(countries, value_added):
+    """
+    Compute the imports of Chinese magnets per 1,000 EUR of value added.
+
+    It compares countries of different size: the imports from China are
+    divided by the value added of the sectors that use the magnets.
+
+    Parameters
+    ----------
+    countries : pandas.DataFrame
+        Tidy table of imports by EU country returned by tidy_imports,
+        with rows for CHINA.
+    value_added : pandas.DataFrame
+        Table returned by tidy_value_added.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Table with columns "reporter", "period", "exposure", for the
+        countries and years in both tables.
+    """
+    china = countries[countries["partner"] == CHINA]
+    # In millions of euros, the same unit as the value added.
+    imports = china.assign(imports_meur=china["value_eur"] / 1e6)[
+        ["reporter", "period", "imports_meur"]
+    ]
+
+    merged = imports.merge(
+        value_added,
+        on=["reporter", "period"],
+        validate="one_to_one",
+    )
+    merged = merged.assign(
+        exposure=merged["imports_meur"] / merged["value_added_meur"] * 1000
+    )
+
+    return merged[["reporter", "period", "exposure"]]
