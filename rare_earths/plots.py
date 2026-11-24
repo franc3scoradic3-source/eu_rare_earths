@@ -1,26 +1,46 @@
 """
-Draw the charts of the analysis with matplotlib.
+Draw the charts of the analysis: matplotlib for the charts, Plotly for
+the interactive map.
 """
 
 import matplotlib.pyplot as plt
+import plotly.express as px
+from matplotlib.colors import to_rgba
 from matplotlib.ticker import PercentFormatter
 
 from rare_earths.metrics import CHINA, trend
 
-# Red for China and blue for Europe, in every chart.
+# Red for China, in every chart.
 CHINA_COLOR = "#D62828"
 CHINA_LIGHT = "#E6A39B"
-EU_COLOR = "#3A6BB5"
-EU_LIGHT = "#9DB5DB"
 # Grey for the reference lines, so that they don't hide the data.
 REFERENCE_COLOR = "gray"
-# Dark grey for titles and light grey for the other texts.
-TITLE_COLOR = "#222222"
-TEXT_COLOR = "#555555"
+# A mid grey for the secondary texts, readable on light and dark pages.
+TEXT_COLOR = "#8A8A8A"
 # Critical Raw Materials Act: at most 65% from a single third country.
 CRMA_LIMIT = 65
 # Above 2,500 the market is highly concentrated.
 HHI_CONCENTRATED = 2500
+# ISO codes with three letters, the ones that Plotly uses for maps.
+ISO3 = {
+    "AT": "AUT", "BE": "BEL", "BG": "BGR", "CY": "CYP", "CZ": "CZE",
+    "DE": "DEU", "DK": "DNK", "EE": "EST", "ES": "ESP", "FI": "FIN",
+    "FR": "FRA", "GR": "GRC", "HR": "HRV", "HU": "HUN", "IE": "IRL",
+    "IT": "ITA", "LT": "LTU", "LU": "LUX", "LV": "LVA", "MT": "MLT",
+    "NL": "NLD", "PL": "POL", "PT": "PRT", "RO": "ROU", "SE": "SWE",
+    "SI": "SVN", "SK": "SVK",
+}
+# English names of the countries, shown on the map.
+COUNTRY_NAMES = {
+    "AT": "Austria", "BE": "Belgium", "BG": "Bulgaria", "CY": "Cyprus",
+    "CZ": "Czechia", "DE": "Germany", "DK": "Denmark", "EE": "Estonia",
+    "ES": "Spain", "FI": "Finland", "FR": "France", "GR": "Greece",
+    "HR": "Croatia", "HU": "Hungary", "IE": "Ireland", "IT": "Italy",
+    "LT": "Lithuania", "LU": "Luxembourg", "LV": "Latvia", "MT": "Malta",
+    "NL": "Netherlands", "PL": "Poland", "PT": "Portugal", "RO": "Romania",
+    "SE": "Sweden", "SI": "Slovenia", "SK": "Slovakia",
+}
+
 
 
 def style_axes(ax, title, subtitle):
@@ -46,7 +66,8 @@ def style_axes(ax, title, subtitle):
         loc="left",
         fontsize=13,
         fontweight="bold",
-        color=TITLE_COLOR,
+        # The colour of the text set by the notebook or the app.
+        color=plt.rcParams["text.color"],
         pad=24,
     )
     # In axes coordinates, (0, 1.03) is just above the top-left corner.
@@ -81,7 +102,8 @@ def plot_china_share(shares, title):
         year,
         china,
         100 - china,
-        colors=[CHINA_COLOR, EU_COLOR],
+        # The rest of the world in the light grey of the shaded areas.
+        colors=[CHINA_COLOR, to_rgba(REFERENCE_COLOR, 0.1)],
         edgecolor="white",
         linewidth=1.5,
     )
@@ -112,7 +134,7 @@ def plot_china_share(shares, title):
         first + 0.5,
         (china.iloc[0] + 100) / 2,
         "REST OF THE WORLD",
-        color="white",
+        color=REFERENCE_COLOR,
         fontsize=13,
         fontweight="bold",
         va="center",
@@ -331,6 +353,66 @@ def plot_monthly(monthly, title, highlight="2025"):
         ax,
         title,
         "Rare-earth magnets imported each month from China, tonnes",
+    )
+
+    return fig
+
+def plot_country_map(table, column, title):
+    """
+    Draw an interactive map of the EU countries, coloured by one column.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        One row per country, with a "reporter" column (Eurostat codes).
+    column : str
+        Column that gives the colour, e.g. "china_share_pct", "imports_meur"
+        or "exposure".
+    title : str
+        The message of the map.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The map: the values appear with the mouse over a country.
+    """
+    table = table.assign(
+        iso3=table["reporter"].map(ISO3),
+        country=table["reporter"].map(COUNTRY_NAMES),
+    )
+
+    fig = px.choropleth(
+        table,
+        locations="iso3",
+        color=column,
+        hover_name="country",
+        # From light to dark red: no white, so that low values are not
+        # confused with the grey countries outside the analysis.
+        color_continuous_scale=[CHINA_LIGHT, CHINA_COLOR, "#7A1414"],
+        scope="europe",
+    )
+    # All of Europe, with the countries outside the analysis in grey.
+    fig.update_geos(
+        projection_type="mercator",
+        lonaxis_range=[-25, 45],
+        lataxis_range=[34, 68],
+        showland=True,
+        landcolor="#B5B5B5",
+        showocean=False,
+        bgcolor="rgba(0, 0, 0, 0)",
+        showcountries=True,
+        countrycolor="white",
+        showcoastlines=False,
+        showframe=False,
+    )
+    fig.update_traces(marker_line_color="white", marker_line_width=0.8)
+    fig.update_layout(
+        title={"text": title, "x": 0},
+        margin={"l": 0, "r": 0, "t": 50, "b": 0},
+        height=600,
+        # Transparent, so that the map takes the colour of the page.
+        paper_bgcolor="rgba(0, 0, 0, 0)",
+        coloraxis_colorbar={"thickness": 12, "len": 0.6, "title": ""},
     )
 
     return fig
