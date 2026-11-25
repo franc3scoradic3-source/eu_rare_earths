@@ -42,7 +42,6 @@ COUNTRY_NAMES = {
 }
 
 
-
 def style_axes(ax, title, subtitle):
     """
     Give a chart the common style of the project.
@@ -356,6 +355,7 @@ def plot_monthly(monthly, title, highlight="2025"):
     )
 
     return fig
+
 
 def plot_country_map(table, column, title):
     """
